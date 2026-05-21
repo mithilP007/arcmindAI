@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import axios from "axios";
 
@@ -28,48 +28,53 @@ export function useGetTasks() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getTasks = async (
-    generationId: string,
-  ): Promise<TasksResponse | null> => {
-    // @ts-expect-error accessToken is added to session in NextAuth callbacks
-    if (!session?.user?.accessToken) {
-      setError("No access token available. Please log in.");
-      return null;
-    }
+  const accessToken = (session?.user as { accessToken?: string })?.accessToken;
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await axios.get(`/api/generate/${generationId}/tasks`, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.status < 200 || response.status >= 300) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+  const getTasks = useCallback(
+    async (generationId: string): Promise<TasksResponse | null> => {
+      if (!accessToken) {
+        setError("No access token available. Please log in.");
+        return null;
       }
 
-      const data: TasksResponse = response.data;
-      if (!data.success) {
-        throw new Error(data.message || "Failed to fetch tasks");
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await axios.get(
+          `/api/generate/${generationId}/tasks`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: TasksResponse = response.data;
+        if (!data.success) {
+          throw new Error(data.message || "Failed to fetch tasks");
+        }
+        return data;
+      } catch (err) {
+        let errorMessage = "An error occurred";
+        if (axios.isAxiosError(err)) {
+          errorMessage =
+            err.response?.data?.error || err.response?.data?.message || err.message;
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
+        }
+        setError(errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
       }
-      return data;
-    } catch (err) {
-      let errorMessage = "An error occurred";
-      if (axios.isAxiosError(err)) {
-        errorMessage =
-          err.response?.data?.error || err.response?.data?.message || err.message;
-      } else if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [accessToken],
+  );
 
   return {
     getTasks,
