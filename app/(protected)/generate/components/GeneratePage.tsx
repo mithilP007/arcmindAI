@@ -33,6 +33,7 @@ export default function GeneratePage() {
   const [generatedData, setGeneratedData] = useState<ArchitectureData | null>(
     null,
   );
+  const [error, setError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mermaidContainerRef = useRef<HTMLDivElement>(null);
@@ -49,7 +50,7 @@ export default function GeneratePage() {
     }
   }, [userInput]);
 
-  const showError = !!generateError && userInput === submittedTextRef.current;
+  const showError = (!!generateError || !!error) && userInput === submittedTextRef.current;
 
   const registerField = register("userInput");
 
@@ -75,6 +76,7 @@ export default function GeneratePage() {
   };
 
   const handleGenerate = async () => {
+    setError(null);
     submittedTextRef.current = userInput;
     const result = await generate(userInput);
     if (result && result.success && result.output) {
@@ -233,7 +235,7 @@ export default function GeneratePage() {
               <p className="font-semibold text-destructive">
                 Generation Failed
               </p>
-              <p className="text-sm text-destructive/80">{generateError}</p>
+              <p className="text-sm text-destructive/80">{error || generateError}</p>
             </div>
           </CardContent>
         </Card>
